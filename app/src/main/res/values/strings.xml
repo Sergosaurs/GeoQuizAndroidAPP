@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">GeoQuizZ</string>
+    <string name="question_kaz">Астана, столица Казахстана?</string>
+    <string name="question_ua">Харьков, столица Украины?</string>
+    <string name="question_blr">Брест, находится в Белорусии?</string>
+    <string name="question_ru">Севастополь, столица Крыма?</string>
+    <string name="question_au">Сидней, столица Австралии?</string>
+    <string name="question_can">Оттава, столица Канады?</string>
+    <string name="true_button">Да</string>
+    <string name="false_button">Нет</string>
+    <string name="next_button">Вперед </string>
+    <string name="prev_button">Назад </string>
+    <string name="correct_toast">Так точно!</string>
+    <string name="incorrect_toast">Не верно!</string>
+    <string name="prev">PREV</string>
+    <string name="next">NEXT</string>
+
+</resources>
