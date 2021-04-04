@@ -1,12 +1,16 @@
 package com.example.geoquizz;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.Gravity;
 import android.view.View;
@@ -17,11 +21,15 @@ import android.widget.Toast;
 public class QuizActivity extends AppCompatActivity {
 
     private Button mTrueButton;
-    private Button mFlaseButton;
+    private Button mFalseButton;
+    private Button mCheatButton;
     private TextView mQuestionTextView;
     private TextView mQuestionValidNum;
     private static final String TAG = "QuizActivity";
     private static final String KEY_INDEX = "index";
+    private static final int REQUEST_CODE_CHEAT = 0;
+    private static final int SHORT_DELAY = 1000; // 2 seconds
+    private boolean mIsCheater;
 
 
     //массив с вопросами
@@ -38,6 +46,20 @@ public class QuizActivity extends AppCompatActivity {
     private int mQuestionIndex = 0;
     private int mPercentIndex = 0;
 
+    //информация об исполтзывании подсказки
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != Activity.RESULT_OK)
+            return;
+        if (requestCode == REQUEST_CODE_CHEAT) {
+            if (data == null) {
+                return;
+            }
+            mIsCheater = CheatActivity.wasAnswerShown(data);
+        }
+    }
+
     @SuppressLint({"WrongViewCast", "SetTextI18n"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,10 +69,24 @@ public class QuizActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         if (savedInstanceState != null)
             mCurrentIndex = savedInstanceState.getInt(KEY_INDEX, 0);
+
         //создаем View вопроса (берем из массива и подставляем во View)
         mQuestionTextView = (TextView) findViewById(R.id.question_text_view);
         mQuestionValidNum = (TextView) findViewById(R.id.number_of_valid_quest);
-        mQuestionValidNum.setText("Всего ответов: " + mQuestionIndex);
+        mQuestionValidNum.setText(mQuestionIndex + " / " + mQuestionList.length);
+
+        //  "чит" кнопка
+        //  запуск дополнительной активности на кнопке "Cheats" -> открывется доп активность с подсказкой
+        mCheatButton = findViewById(R.id.cheat_button);
+        mCheatButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                boolean answerIsTrue = mQuestionList[mCurrentIndex].isAnswerTrue();
+                Intent intent = CheatActivity.newIntent(QuizActivity.this, answerIsTrue);
+                startActivityForResult(intent, REQUEST_CODE_CHEAT);
+            }
+        });
+
 
         //две кнопки да/нет
         mTrueButton = findViewById(R.id.true_button);
@@ -58,19 +94,18 @@ public class QuizActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 checkAnswer(true);
-                blockButtons(mTrueButton, mFlaseButton, false);
-
+                mIsCheater = false;
             }
         });
 
-        mFlaseButton = findViewById(R.id.false_button);
-        mFlaseButton.setOnClickListener(new View.OnClickListener() {
+        mFalseButton = findViewById(R.id.false_button);
+        mFalseButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 checkAnswer(false);
-                blockButtons(mTrueButton, mFlaseButton, false);
             }
         });
+        updateQuestion();
 
         //кнопка Next, при нажатии достает след вопрос
         Button nextButton = (Button) findViewById(R.id.next_button);
@@ -78,34 +113,20 @@ public class QuizActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 mCurrentIndex = (mCurrentIndex + 1) % mQuestionList.length;
+                mQuestionIndex++;
+                mQuestionValidNum.setText(mQuestionIndex + " / " + mQuestionList.length);
                 updateQuestion();
-                blockButtons(mTrueButton, mFlaseButton, true);
-                if (mQuestionIndex == mQuestionList.length) gameOver();
+                blockButtons(mTrueButton, mFalseButton, true);
+                if (mQuestionIndex > mQuestionList.length) {
+                    mQuestionIndex = mQuestionList.length;
+                    gameOver();
+                }
             }
         });
-        updateQuestion();
-
-        //кнопка Prev
-        Button prevButton = (Button) findViewById(R.id.prev_button);
-        prevButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (mCurrentIndex > 0) {
-                    mCurrentIndex = (mCurrentIndex - 1) % mQuestionList.length;
-                    int question = mQuestionList[mCurrentIndex].getTextResId();
-                    mQuestionTextView.setText(question);
-                }
-                if (mCurrentIndex == 0) {
-                    mCurrentIndex = mQuestionList.length - 1;
-                    int question = mQuestionList[mCurrentIndex].getTextResId();
-                    mQuestionTextView.setText(question);
-                }
-                updateQuestion();
-                blockButtons(mTrueButton, mFlaseButton, true);
-            }
-        });
+        mIsCheater = false;
         updateQuestion();
     }
+
 
     @Override
     public void onStart() {
@@ -138,7 +159,7 @@ public class QuizActivity extends AppCompatActivity {
     }
 
     @Override
-    public void onSaveInstanceState(Bundle savedInstanceState) {
+    public void onSaveInstanceState(@NonNull Bundle savedInstanceState) {
         super.onSaveInstanceState(savedInstanceState);
         Log.i(TAG, "onSaveInstanceState");
         savedInstanceState.putInt(KEY_INDEX, mCurrentIndex);
@@ -155,15 +176,27 @@ public class QuizActivity extends AppCompatActivity {
     private void checkAnswer(boolean userPressTrue) {
         boolean answerIsTrue = mQuestionList[mCurrentIndex].isAnswerTrue();
         int messageResId = 0;
-        if (userPressTrue == answerIsTrue) {
-            messageResId = R.string.correct_toast;
-            mPercentIndex++;
-        } else messageResId = R.string.incorrect_toast;
-        Toast toast = Toast.makeText(this, messageResId, Toast.LENGTH_SHORT);
-        toast.setGravity(Gravity.BOTTOM, 0, 400);
-        mQuestionIndex++;
-        mQuestionValidNum.setText("Всего ответов: " + mQuestionIndex);
+        if (mIsCheater) {
+            messageResId = R.string.judgment_toast;
+        } else {
+            if (userPressTrue == answerIsTrue) {
+                messageResId = R.string.correct_toast;
+                mPercentIndex++;
+            } else {
+                messageResId = R.string.incorrect_toast;
+            }
+        }
+        final Toast toast = Toast.makeText(this, messageResId, Toast.LENGTH_SHORT);
+        toast.setGravity(Gravity.BOTTOM, 0, 200);
         toast.show();
+        //прерывание "тоста" (слишком долгий)
+        Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                toast.cancel();
+            }
+        }, 700);
     }
 
     //блокировка кнопок после ответа
@@ -176,7 +209,7 @@ public class QuizActivity extends AppCompatActivity {
         AlertDialog.Builder alertBuider = new AlertDialog.Builder(QuizActivity.this);
         alertBuider.setMessage("Игра окочена! Процент правильных ответов: " + (100 * mPercentIndex) / mQuestionList.length)
                 .setCancelable(false)
-                .setPositiveButton("Новая Игра", new DialogInterface.OnClickListener() {
+                .setPositiveButton("Заново", new DialogInterface.OnClickListener() {
                     @Override
                     public void onClick(DialogInterface dialog, int which) {
                         startActivity(new Intent(getApplicationContext(), QuizActivity.class));

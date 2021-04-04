@@ -8,11 +8,15 @@
     <string name="question_can">Оттава, столица Канады?</string>
     <string name="true_button">Да</string>
     <string name="false_button">Нет</string>
-    <string name="next_button">Вперед </string>
-    <string name="prev_button">Назад </string>
+    <string name="next_button">Далее </string>
     <string name="correct_toast">Так точно!</string>
     <string name="incorrect_toast">Не верно!</string>
     <string name="prev">PREV</string>
     <string name="next">NEXT</string>
+
+    <string name="warning_text">Ты уверен(а)?</string>
+    <string name="show_answer_button">Показать ответ</string>
+    <string name="cheat_button">Ответ</string>
+    <string name="judgment_toast">Это было не честно!</string>
 
 </resources>
